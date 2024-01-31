@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <title>登录</title>
+    <link rel="stylesheet" href="./static/css/login.css">
+    <link rel="stylesheet" href="./static/css/semantic.min.css">
+</head>
+<body>
+<div>
+    <div class="title-container">
+
+    </div>
+    <!--登录界面-->
+    <div class="content" id="login">
+        <h2 class="ui white header">联机五子棋在线</h2>
+        <h3 class="ui black header">登录</h3><br>
+        <div class="">
+            <div class="ui labeled input">
+                <div class="ui label">
+                    账号
+                </div>
+                <input type="text" id="loginId" placeholder="在此输入账号">
+            </div>
+            <br><br>
+
+            <div class="ui labeled input">
+                <div class="ui label">
+                    密码
+                </div>
+                <input type="password" id="loginPassword" placeholder="在此输入密码">
+            </div>
+            <br><br>
+
+            <button class="ui blue button" onclick="login()">登录</button>
+            <a class="ui green button" onclick="toRegister()">去注册</a>
+        </div>
+    </div>
+    <!--注册界面-->
+    <div class="content" id="register">
+        <h2 class="ui white header">联机五子棋在线</h2>
+        <h3 class="ui black header">注册</h3><br>
+        <div class="">
+            <div class="ui labeled input">
+                <div class="ui label">
+                    账号
+                </div>
+                <input type="text" id="registerId" placeholder="设置账号">
+            </div>
+            <br><br>
+            <div class="ui labeled input">
+                <div class="ui label">
+                    昵称
+                </div>
+                <input type="text" id="registerName" placeholder="取个名字吧">
+            </div>
+            <br><br>
+            <div class="ui labeled input">
+                <div class="ui label">
+                    密码
+                </div>
+                <input type="text" id="registerPassword" placeholder="设置密码">
+            </div>
+            <br><br>
+            <button class="ui blue button" onclick="register()">提交</button>
+            <a class="ui green button" onclick="toLoginPage()">去登录</a>
+        </div>
+    </div>
+</div>
+<script src="./static/js/MyUtil.js" type="text/javascript"></script>
+<script src="./static/js/axios.min.js" type="text/javascript"></script>
+<script>
+    let url = getUrl();
+
+    let loginPage = document.getElementById('login');
+    let registerPage = document.getElementById('register');
+
+    registerPage.style.display = 'none';
+
+
+    function toRegister(){
+        loginPage.style.display = 'none';
+        registerPage.style.display = 'block';
+    }
+    function toLoginPage(){
+        loginPage.style.display = 'block';
+        registerPage.style.display = 'none';
+    }
+    function register(){
+        let registerId = document.querySelector('#registerId').value;
+        let registerName = document.querySelector('#registerName').value;
+        let registerPassword = document.querySelector('#registerPassword').value;
+        if(registerId===''||registerName===''||registerPassword===''){
+            alert('请完成设置！');
+            return;
+        }
+        if (registerId.indexOf(' ')!==-1||registerName.indexOf(' ')!==-1||registerPassword.indexOf(' ')!==-1){
+            alert('不能包含空格！');
+            return;
+        }
+        axios.post('http://'+url+'/registerPost',{
+            id:registerId,
+            name:registerName,
+            password: registerPassword
+        }).then(function (response) {
+            if(response.data.code===200){
+                alert('注册成功！请返回登录···');
+                document.querySelector('#loginId').setAttribute('value',registerId);
+                document.querySelector('#loginPassword').setAttribute('value',registerPassword);
+                //login();
+            }else{
+                alert(response.data.message)
+            }
+        }).catch(function (e) {
+            console.log(e);
+        })
+    }
+    function login(){
+        let loginId = document.querySelector('#loginId').value;
+        let password = document.querySelector('#loginPassword').value;
+        if(loginId===''||password===''){
+            alert('请输入账号和密码');
+            return;
+        }
+        axios.post('http://'+url+'/loginPost',{
+            login:loginId,
+            password:password
+        }).then(function (response) {
+            if(response.data.code===200){
+                alert('登录成功！');
+                localStorage.setItem('user',JSON.stringify(response.data.content));
+                //sessionStorage.setItem('user',response.)
+                console.log(localStorage.getItem('user'))
+                window.location.href='index.html';
+            }else{
+                alert(response.data.message)
+            }
+        }).catch(function (e) {
+            console.log(e);
+        })
+    }
+
+</script>
+</body>
+</html>

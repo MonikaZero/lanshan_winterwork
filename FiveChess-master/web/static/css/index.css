@@ -1,0 +1,239 @@
+
+.title{
+    margin-top: 10px !important;
+    margin-bottom: 10px !important;
+    text-align: center !important;
+}
+.chessBoard{
+    /*display: block; !*块级元素，使其可以居中*!*/
+    margin: auto;
+    box-shadow: 5px 5px 10px #B9B9B9, -2px -2px 2px #B9B9B9;
+    cursor: pointer;
+}
+.lobby{
+    width: 750px;
+    height: 100%;
+    margin: auto;
+    box-shadow: 5px 5px 10px #B9B9B9, -2px -2px 2px #B9B9B9;
+    cursor: pointer;
+}
+.board-btn{
+    padding: 10px 20px;
+    background-color: forestgreen;
+    border-radius: 8px;
+    color: white;
+}
+
+html body{
+    height: 100%;
+    background-color: black;
+}
+.wrapper{
+    padding-bottom: 20px;
+    position: absolute;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+}
+.container-all{
+    width: 100%;
+    display: flex;
+    position: relative;
+    margin-top: 30px;
+}
+.left{
+    width: 20%;
+    margin-left: 5%;
+}
+/*.container div{*/
+/*    margin: auto;*/
+/*}*/
+
+.middle{
+    width: 60%;
+    text-align: center;
+}
+.right{
+    width: 20%;
+    margin-right: 5%;
+}
+.avatar{
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+}
+.userInfo{
+    display: flex;
+}
+.avatar-container{
+    text-align: center;
+}
+.name-container{
+
+}
+.name{
+    /*font-weight: bolder !important;*/
+    margin-left: 10px !important;
+    /*font-size: larger !important;*/
+    margin-bottom: 0 !important;
+}
+.room-container{
+    margin: 30px;
+    display: grid;
+    grid: 200px /180px 180px 180px 180px;
+}
+.room{
+    border-radius: 20px;
+    background-color: #DEB887;
+    width: 150px;
+    height: 150px;
+}
+.room-left{
+    display: block;
+    width: 50%;
+    height: 100%;
+}
+.player-name{
+    font-size: smaller;
+}
+.room-right{
+    display: block;
+    width: 50%;
+    height: 100%;
+}
+.player-avatar{
+    text-align: center;
+    margin: auto;
+    width: 50px;
+    border-radius: 10px;
+}
+.room-avatar{
+    margin: 10px;
+    display: flex;
+}
+.tip{
+    margin: 10px;
+    width: 100%;
+}
+.add-avatar{
+    width: 80px;
+    height: 80px;
+}
+.room-avatar .add{
+    width: 100%;
+    margin: auto;
+}
+
+.chat-window{
+    border-radius: 20px;
+    background-color: beige;
+    height: 410px;
+    display: block;
+    width: 300px;
+}
+
+.chat-bottom{
+    margin-left: 15px;
+    margin-top: 3px;
+    display: flex;
+    margin-bottom: 0;
+    position: absolute;
+}
+.chat-middle{
+    margin-left: 5px;
+    border-radius: 5px;
+    margin-right: 5px;
+    background-color: white;
+    height: 340px;
+    overflow: scroll;
+}
+.chat-name{
+    font-weight: bolder;
+    text-align: center;
+}
+.send-btn{
+    margin-left: 5px;
+    margin-right: 0;
+    color: aliceblue;
+    background-color: green;
+    border-radius: 4px;
+}
+.message-left{
+    border-radius: 3px;
+    background-color: aliceblue;
+    padding: 0;
+    word-break:break-all;
+}
+.message-right{
+    border-radius: 3px;
+    background-color: darkseagreen;
+    padding: 0;
+    word-break:break-all;
+}
+.message-middle{
+    border-radius: 3px;
+    padding: 0;
+    word-break:break-all;
+}
+.message-middle p{
+    color: red;
+}
+.turn-show{
+    background-color: #DEB887;
+    border-radius: 5px;
+    padding: 20px;
+}
+/*提示框的css*/
+/* 提示语开始 */
+@-webkit-keyframes toastAnimation {
+    0% {
+        opacity:1;
+    }
+    25% {
+        opacity:0.75;
+    }
+    50% {
+        opacity:0.5;
+    }
+    75% {
+        opacity:0.25;
+    }
+    100% {
+        opacity:0;
+    }
+}
+@keyframes toastAnimation {
+    0% {
+        opacity:1;
+    }
+    25% {
+        opacity:0.75;
+    }
+    50% {
+        opacity:0.5;
+    }
+    75% {
+        opacity:0.25;
+    }
+    100% {
+        opacity:0;
+    }
+}
+.toast-message {
+    text-align:center;
+    color:#fff;
+    font-size:14px;
+    width:150px;
+    padding:10px;
+    background-color:rgba(0,0,0,0.5);
+    box-shadow:0 8px 16px 0 rgba(51,51,51,0.30);
+    border-radius:4px;
+    position:fixed;
+    z-index:9999;
+    left:50%;
+    margin-left: -75px;
+}
+/* 提示语结束 */
+.red{
+    background-color: red;
+}

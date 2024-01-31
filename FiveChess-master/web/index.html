@@ -1,0 +1,1588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>五子棋</title>
+		<link rel="stylesheet" href="./static/css/index.css">
+		<link rel="stylesheet" href="./static/css/semantic.min.css">
+		<link rel="stylesheet" href="./static/css/jquery-confirm.css">
+		<link rel="stylesheet" href="https://libs.baidu.com/bootstrap/3.2.0/css/bootstrap.min.css">
+
+</head>
+	<body >
+	<div id="app">
+		<div class="wrapper" :style="'background-image: url('+background_image+')'">
+
+			<h1 class="title ui blue header" id="title">---联机五子棋---</h1>
+<!--用户信息-->
+			<div class="container-all">
+				<div class="left">
+					<div class="userInfo">
+						<div class="avatar-container">
+							<img class="avatar" :src="avatar">
+						</div>
+						<div class="name-container">
+							<p class="ui green header name">{{user.name}}</p>
+						</div>
+					</div>
+					<div class="btn-container">
+						<button onclick="logout()" class="ui red button">退出登录</button>
+						<br>
+						<br>
+						<button @click="backToLobby()" v-show="!roomReady" class="ui blue button">返回大厅</button>
+						<br>
+						<br>
+						<button @click="getHistoryGame(pageNum)" v-show="!roomReady" class="ui blue button">历史对局</button>
+						<br>
+						<br>
+						<div class="ui blue buttons">
+							<div class="ui button">背景</div>
+							<div class="ui floating dropdown icon button">
+								<i class="dropdown icon"></i>
+								<div class="menu">
+									<div class="item" v-for="(bg,index) in bgs" @click="changeBg(bg.url)"><i class="image icon"></i>{{bg.name}}</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<!--			棋盘-->
+				<div class="middle">
+					<div v-show="lobbyReady" class="lobby">
+						<h4 class="tip">大厅</h4>
+						<div class="room-container">
+							<div class="room" v-for="(room,index) in onlineRooms">
+								<h4 class="tip">{{room.state=='waiting'?'等待加入···':'对局中'}}</h4>
+								<div class="room-avatar">
+									<div class="room-left">
+										<img class="player-avatar" :src="avatar">
+										<p class="player-name">{{room.playerName1}}</p>
+									</div>
+									<div class="room-right">
+										<img class="player-avatar" @click="joinRoom(room)" :src="room.playerId2=='-1'?addImage:avatar">
+										<p v-show="room.playerId2!='-1'" class="player-name">{{room.playerName2}}</p>
+									</div>
+								</div>
+							</div>
+							<div class="room">
+								<h4 class="tip">创建房间</h4>
+								<div class="room-avatar">
+									<img @click="createRoom()" alt="创建" style="margin: auto" class="add-avatar" :src="addImage">
+								</div>
+							</div>
+
+
+						</div>
+					</div>
+					<div v-show="roomReady" class="board">
+						<canvas  id="chessBoard" class="chessBoard" style="background-color: #DEB887;" width="540px" height="540px"></canvas>
+						<div>
+							<div style="text-align: center;">
+								<button @click="getReady()" class="ui green button" v-show="!gameReady">准备</button>
+								<button v-show="gameReady" @click="regretOne()" class="ui green button">悔棋</button>
+								<button v-show="gameReady" @click="surrender()" class="ui green button">认输</button>
+								<button v-show="gameReady" @click="peace()" class="ui green button">求和</button>
+								<button v-show="gameReady" @click="restart()" class="ui green button">重开</button>
+								<button class="ui red button " @click="quitRoom()">离开房间</button>
+							</div>
+						</div>
+					</div>
+					<div v-show="reviewReady" class="board">
+						<canvas  id="reviewBoard" class="chessBoard" style="background-color: #DEB887;" width="540px" height="540px"></canvas>
+						<div>
+							<div style="text-align: center;">
+								<button  @click="reviewFirst()" class="ui green button">开局</button>
+								<button  @click="reviewLast()" class="ui green button">上一步</button>
+								<button  @click="reviewNext()" class="ui green button">下一步</button>
+								<button  @click="reviewFinal()" class="ui green button">终局</button>
+								<button  @click="pressAutoPause()" class="ui green button"><i :class="{'play':!autoReview,'pause':autoReview,'icon':true}"></i></button>
+							</div>
+						</div>
+					</div>
+					<div v-show="tableReady" class="lobby">
+						<table class="ui celled padded table">
+							<thead>
+							<tr><th>序   号</th>
+								<th>开始时间</th>
+								<th>结束时间</th>
+								<th>对手昵称</th>
+								<th>步   数</th>
+								<th>结   局</th>
+								<th>操   作</th>
+							</tr></thead>
+							<tbody>
+							<tr v-for="(game,index) in historyGames">
+								<td>{{index+1}}</td>
+								<td>{{game.start}}</td>
+								<td>{{game.end}}</td>
+								<td>{{game.player1==user.id?game.name2:game.name1}}</td>
+								<td>{{game.steps}}</td>
+								<td><button :class="resultClass(game)">{{showResult(game)}}</button></td>
+								<td><button class="ui blue button" @click="review(index,game)">复盘</button></td>
+							</tr>
+							</tbody>
+							<tfoot>
+							<tr><th colspan="7">
+								<div class="ui left floated pagination menu">
+									<a v-show="hasLastPage" class="icon item" @click="getHistoryGame(pageNum-1)">
+										<i class="left chevron icon"></i>
+									</a>
+									<a class="item">{{'共'+totalNum+'条'}}</a>
+									<a class="item">{{'当前第'+pageNum+'页'}}</a>
+									<a class="item">{{'共'+totalPage+'页'}}</a>
+									<a v-show="hasNextPage" class="icon item" @click="getHistoryGame(pageNum+1)">
+										<i class="right chevron icon"></i>
+									</a>
+								</div>
+							</th>
+							</tr></tfoot>
+						</table>
+					</div>
+				</div>
+
+				<div class="right">
+					<div v-show="reviewReady" class="turn-show">
+						<div>
+							<img class="ui avatar image" src="./static/image/black.png">
+							<span>{{blackName}}</span>
+						</div>
+						<br>
+						<div>
+							<img class="ui avatar image" src="./static/image/white.png">
+							<span>{{whiteName}}</span>
+						</div>
+					</div>
+<!--					聊天窗口-->
+					<div class="chat-window" v-show="roomReady">
+						<div class="chat-top">
+							<div class="chat-name">消息</div>
+						</div>
+						<div class="chat-middle" id="chat-body">
+							<div class="message-container">
+								<div v-for="(message,index) in messages" :class="showClass(message.position)">
+									<div><p>{{'('+message.time.substr(11,8)+')'}}</p>{{message.content}}</div>
+								</div>
+							</div>
+
+						</div>
+						<div class="chat-bottom">
+							<div class="ui action input">
+								<input type="text" v-model="text" @keyup.enter="sendText()" placeholder="回车发送消息">
+								<button @click="sendText()" class="ui blue button">发送</button>
+							</div>
+						</div>
+					</div>
+				</div>
+
+			</div>
+
+
+		</div>
+
+	</div>
+	<script src="./static/js/MyUtil.js" type="text/javascript"></script>
+	<script src="./static/js/jquery.min.js"></script>
+	<script src="./static/js/jquery-confirm.js"></script>
+	<script src="http://apps.bdimg.com/libs/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+	<script src="./static/js/semantic.min.js"></script>
+	<script src="./static/js/axios.min.js" type="text/javascript"></script>
+	<script type="text/javascript" src="./static/js/vue@2.js"></script>
+	<script>
+
+		let user = localStorage.getItem('user');
+		if(user===null||user===undefined){
+			console.log('请先登录！');
+			window.location.href = 'login.html';
+		}
+
+		function logout(){
+			let r = confirm('是否退出登录？');
+			if(r){
+				localStorage.removeItem('user');
+				window.location.href = 'login.html';
+			}
+		}
+
+
+		let socket;//好友之间发送消息的服务器
+
+		let app = new Vue({
+			el:"#app",
+			data:{
+				url:getUrl(),//接口地址
+				avatar:'./static/image/avatar.jpeg', //统一头像
+				addImage:'./static/image/add.png',//加房间的指示图片url
+				user:{},  //用户信息
+				chessBoard:null,
+				context:null,//棋盘
+				background_image:'./static/image/bg-2.png', //初始背景
+				tableReady:false,
+				roomReady:false,//房间是否创建好了
+				lobbyReady:true,//显示大厅
+				gameReady:false,//玩家是否已准备
+				oppoReady:false,//对手是否准备
+				wins:[],//赢法数组
+				chess_Board:[],//棋盘的二维数组
+				isMyTurn:true,//是否该我下棋
+				isOver:false,//是否结束
+				myWin:[],//记录我在赢法上的分值
+				OppoWin:[],//记录计算机在赢法上的分值
+				count:0,//赢法编号
+				onlineRooms:[],//在线的房间
+				myRoom:{},//我的房间
+				myChessColor:'',//我的棋子颜色
+				historySteps:[],//本局的历史步数
+				messages:[],//消息
+				text:'',//待发送的消息
+				lastPlay:false,//上一手是不是我下的  如果是 悔棋只需返回一步  如果不是 则需要返回两步
+				oppoId:'-1',//对手id
+				requestWaiting:false,//是否处于等待响应状态
+
+				//////因为一个页面不能存放太多的数据  所以需要进行分页查询
+				historyGames:[],  //历史对局
+				pageNum:1,        //当前处于第几页
+				hasLastPage:false,//是否有上一页
+				hasNextPage:false,//是否有下一页
+				totalNum:0,       //总共有多少条数据
+				totalPage:0,     //总共有多少页
+
+				//////以下是复盘的棋盘信息
+				reviewSteps:[],  //复盘总步数
+				reviewStepsHistory:[], //复盘历史
+				reviewIndex:0, //复盘索引
+				reviewReady:false,
+				reviewBoard:null,
+				reviewContext:null,//棋盘
+				blackName:'',//黑棋
+				whiteName:'',//白棋是谁
+				autoReview:false,//是否自动播放
+
+				//背景
+				bgs:[{
+					name:'淡紫远山',
+					url:'./static/image/bg-2.png',
+				},{
+					name:'墨色黄花',
+					url:'./static/image/bg-1.jpg',
+				},{
+					name:'暮色夕阳',
+					url:'./static/image/bg-3.jpg'
+				},{
+					name:'仲夏梦莲',
+					url: './static/image/bg-4.jpg'
+				}]
+			},
+			mounted(){
+				//初始化用户
+				this.user = JSON.parse(user);
+				//初始化赢法
+				this.initWins();
+				//初始化下棋数组
+				this.initChessArray();
+				//下棋
+				this.drawChessBoard();
+				//初始化复盘的棋盘
+				this.initReviewBoard();
+				//初始化websocket
+				this.initSocket();
+				this.toastMsg('欢迎登录');
+				//激活下拉菜单
+				$('.ui.dropdown').dropdown('show');
+			},
+			methods:{
+				//按下自动或者暂停按键时
+				pressAutoPause(){
+					//如果时暂停状态则改为自动 反正亦然
+					if(this.autoReview){
+						this.autoReview = false;
+					}else {
+						this.autoReview = true;
+						this.startAutoPlay();
+					}
+				},
+				//自动复盘
+				startAutoPlay(){ //默认延迟时间为1秒
+					if(this.autoReview) this.reviewNext();
+					if(this.reviewStepsHistory.length===this.reviewSteps.length){
+						this.autoReview = false;
+					}
+					if(this.autoReview){
+						this.sleep(1000).then(()=>{
+							this.startAutoPlay();
+						})
+					}
+				},
+				//改变背景
+				changeBg(url){
+					this.background_image = url;
+				},
+				//求和
+				peace(){
+					if(this.isOver){
+						this.toastMsg('对局已结束,请重新开始！');
+						return;
+					}
+					if(!this.couldPressOrNot())	return;
+					let r = confirm('确认和棋？少于3回合的对局不会被保存！');
+					if (r) {
+						let message={
+							type:'peace',
+							roomId:this.myRoom.id,
+							from:this.user.id,
+							to:this.oppoId
+						}
+						socket.send(JSON.stringify(message));
+						this.requestWaiting = true; //等待响应中
+						//构造系统消息
+						this.addSystemMessage('你请求了和棋···');
+					}
+				},
+				//重开
+				restart(){
+					if(!this.couldPressOrNot())	return;
+					let r = confirm('未完成的对局不会保存！');
+					if(r){
+						let message = {
+							type:'restart',
+							roomId:this.myRoom.id,
+							from:this.user.id,
+							to:this.oppoId
+						}
+						socket.send(JSON.stringify(message));
+						this.requestWaiting = true;
+						this.addSystemMessage('你已发送重开请求！');
+					}
+				},
+				//认输
+				surrender(){
+					if(this.isOver){
+						this.toastMsg('对局已结束,请重新开始！');
+						return;
+					}
+					if(!this.couldPressOrNot())	return;
+					let r = confirm('确认认输？少于3回合的对局不会被保存！');
+					if(r){
+						let message={
+							type:'surrender',
+							roomId:this.myRoom.id,
+							from:this.user.id,
+							to:this.oppoId
+						}
+						socket.send(JSON.stringify(message));
+						//构造系统消息
+						message = {
+							type:'system',
+							content:'系统消息:你认输了',
+							time:this.getTimeNow(),
+							position:'middle',
+						}
+						this.messages.push(message);
+						this.scrollToBottom();
+						this.isOver = true;
+					}
+				},
+				//控制class
+				resultClass(game){
+					if(game.type==='normal'){
+						if(game.win===this.user.id)	return "ui green button";
+						else return "ui red button";
+					}
+					if(game.type==='peace')	return 'ui yellow button';
+					if(game.type==='surrender'){
+						if(game.win===this.user.id)	return 'ui green button';
+						else return 'ui red button';
+					}
+				},
+				//终局
+				reviewFinal(){
+					//取消自动
+					this.autoReview = false;
+					for(let i=this.reviewIndex;i<this.reviewSteps.length;i++){
+						this.reviewStepsHistory.unshift(this.reviewSteps[i]);
+						this.reviewContext.beginPath();
+						this.reviewContext.arc(this.reviewSteps[i].x*30+15, this.reviewSteps[i].y*30+15, 13, 0, 2*Math.PI);//画圆
+						this.reviewContext.closePath();
+						this.reviewContext.fillStyle=this.reviewSteps[i].color;
+						this.reviewContext.fill();
+					}
+					this.reviewIndex = this.reviewSteps.length - 1;
+				},
+				//开局
+				reviewFirst(){
+					//取消自动
+					this.autoReview = false;
+					this.clearReviewBoard();
+					this.reviewIndex = 0;
+					this.reviewStepsHistory = [];
+				},
+				//上一步
+				reviewLast(){
+					if(this.reviewStepsHistory.length===0){
+						this.toastMsg('已经是开局了!');
+						return;
+					}
+					let step = this.reviewStepsHistory.shift();
+					this.reviewContext.stroke();
+					//清除掉棋子痕迹
+					this.reviewContext.clearRect(step.x*30,step.y*30,30,30);
+					//画出线
+					this.reviewContext.strokeStyle = "black";
+					//设置起始点的坐标
+
+					let x1,y1,x2,y2;
+					///画出被擦去的x轴  需要考虑边界问题
+					if(step.x===0){
+						x1=15;
+						x2=30;
+					}else if(step.x===17){
+						x1=17*30;
+						x2=17*30+15;
+					}else{
+						x1 = step.x * 30;
+						x2 = step.x * 30+30;
+					}
+					this.reviewContext.beginPath();
+					this.reviewContext.moveTo(x1,step.y*30+15);
+					this.reviewContext.lineTo(x2,step.y*30+15);
+					this.reviewContext.closePath();
+					this.reviewContext.stroke();
+
+					///画出被擦去的y轴  需要考虑边界问题
+					if(step.y===0){
+						y1=15;
+						y2=30;
+					}else if(step.y===17){
+						y1=17*30;
+						y2=17*30+15;
+					}else{
+						y1 = step.y * 30;
+						y2 = step.y * 30+30;
+					}
+					//设置起始点的坐标
+					this.reviewContext.beginPath();
+					this.reviewContext.moveTo(step.x * 30+15,y1);
+					//设置结束点的坐标
+					this.reviewContext.lineTo(step.x * 30+15,y2);
+					this.reviewContext.closePath();
+					//连接两个点
+					this.reviewContext.stroke();
+					this.reviewIndex --;
+				},
+				//下一步
+				reviewNext(){
+					if(this.reviewStepsHistory.length===this.reviewSteps.length){
+						this.toastMsg('已经是终局啦!');
+						return;
+					}
+					let step = this.reviewSteps[this.reviewIndex];
+					this.reviewIndex++;
+					this.reviewStepsHistory.unshift(step);
+					//画棋子
+					this.reviewContext.beginPath();
+					this.reviewContext.arc(step.x*30+15, step.y*30+15, 13, 0, 2*Math.PI);//画圆
+					this.reviewContext.fillStyle=step.color;
+					this.reviewContext.fill();
+					this.reviewContext.closePath();
+					if(this.reviewStepsHistory.length===this.reviewSteps.length){
+						this.toastMsg('终局!');
+					}
+				},
+				//清理复盘棋盘
+				clearReviewBoard(){
+					this.reviewContext.clearRect(0,0,540,540);
+					//重新绘制线条
+					for(let i = 0; i < 18; i ++){
+						//x轴
+						this.reviewContext.beginPath();
+						//设置起始点的坐标
+						this.reviewContext.moveTo(15, 15+i*30)
+						//设置结束点的坐标
+						this.reviewContext.lineTo(525,15+i*30);
+						//连接两个点
+						this.reviewContext.stroke();
+						//y轴
+						//设置起始点的坐标
+						this.reviewContext.moveTo(15+i*30, 15)
+						//设置结束点的坐标
+						this.reviewContext.lineTo(15+i*30, 525);
+						//连接两个点
+						this.reviewContext.stroke();
+						this.reviewContext.closePath();
+					}
+
+				},
+				//初始化复盘棋盘
+				initReviewBoard(){
+					this.reviewBoard=document.getElementById('reviewBoard');// getElementsByClassName('chessBoard')[0];
+					this.reviewContext = this.reviewBoard.getContext("2d");
+					this.reviewContext.strokeStyle = "black";
+				},
+				//复盘
+				review(index,game){
+					let that = this;
+					axios.post('http://'+that.url+'/getGameData',{
+						id:game.data,
+					}).then(function (response) {
+						console.log(response.data)
+						if(response.data.code===200){
+							that.reviewSteps = response.data.content.steps;
+							that.reviewIndex = 0;
+							that.reviewStepsHistory = [];
+							that.clearReviewBoard();
+							that.tableReady = false;
+							that.reviewReady = true;
+							that.autoReview = false;//默认不开启自动
+							if(that.reviewSteps[0].player===that.user.id){
+								if(that.reviewSteps[0].color==='white'){
+									that.whiteName = '我方';
+									that.blackName = '对手';
+								}else{
+									that.blackName = '我方';
+									that.whiteName = '对手';
+								}
+							}else{
+								if(that.reviewSteps[0].color==='black'){
+									that.whiteName = '我方';
+									that.blackName = '对手';
+								}else{
+									that.blackName = '我方';
+									that.whiteName = '对手';
+								}
+							}
+						}else{
+							alert(response.data.message)
+						}
+					}).catch(function (e) {
+						console.log(e);
+					})
+				},
+				//返回大厅
+				backToLobby(){
+					this.tableReady = false;
+					this.lobbyReady = true;
+					this.reviewReady = false;
+				},
+				showResult(game){
+					if(game.type==='peace')	return '平局';
+					if(game.type==='normal')
+					{
+						if(game.win===this.user.id)	return '获胜';
+						else return '败北';
+					}
+					if(game.type==='surrender'){
+						if(game.win===this.user.id)	return '对手认输';
+						else return '认输';
+					}
+				},
+				//获取历史局
+				getHistoryGame(pageNum){
+					let that = this;
+					//axios.post('http://'+that.url+'/getRecords',{  //废弃非分页的方法
+					axios.post('http://'+that.url+'/getPage',{
+						id:that.user.id,
+						pageNum:pageNum
+					}).then(function (response) {
+						if(response.data.code===200){
+							let content = response.data.content;
+							that.historyGames = content.records; //本页的所有记录
+							that.pageNum = content.current;     //当前页码
+							that.totalNum = content.total;     //总条数
+							that.hasLastPage = content.current !== 1; //如果时第一页 则 没有上一页
+							that.hasNextPage = !((((content.current - 1) * 8) < content.total) && content.total <= (content.current * 8));
+							//计算总共有多少页
+							that.totalPage = Math.ceil(content.total/8);
+
+							that.lobbyReady = false;
+							that.roomReady = false;
+							that.reviewReady = false;
+							that.tableReady = true;
+						}else{
+							alert(response.data.message)
+						}
+					}).catch(function (e) {
+						console.log(e);
+					})
+				},
+				//处理悔棋同意
+				processRegretAgree(){
+					this.toastMsg('对手同意了悔棋');
+					this.addSystemMessage('对方同意你悔棋');
+					this.GoBackOneStep();
+					if(!this.lastPlay){
+						this.GoBackOneStep();
+					}
+					this.isMyTurn = true;
+					this.lastPlay = false;
+					this.requestWaiting = false;
+				},
+				//处理悔棋请求
+				/////这里有个bug就是
+				processRegret(data){
+					let that = this;
+					$.confirm({
+						title: '对手请求悔棋',
+						content: '是否同意···',
+						confirmButton:'同意',
+						cancelButton:'拒绝',
+						confirm: function(){
+							let backNum = that.lastPlay?2:1; //返回步数
+							let message = {
+								type:'regret-agree',
+								from:that.user.id,
+								to:that.oppoId,
+								roomId:that.myRoom.id,
+								backNum:backNum
+							}
+							socket.send(JSON.stringify(message));
+							//如果上一步是我下的  回两步
+							that.GoBackOneStep();
+							if(that.lastPlay){
+								that.GoBackOneStep();
+							}
+							that.lastPlay = true; //同意对方悔棋之后  上一步就是我下的了
+							that.isMyTurn = false; //就不该我下了
+							that.addSystemMessage('你同意了对方的悔棋申请');
+						},
+						cancel: function(){
+							let message = {
+								type:'regret-reject',
+								from:that.user.id,
+								to:that.oppoId,
+								roomId:that.myRoom.id
+							}
+							socket.send(JSON.stringify(message));
+							that.addSystemMessage('你拒绝了对方的悔棋申请');
+						}
+					});
+				},
+				//悔棋
+				regretOne(){
+					if(this.isOver){
+						this.toastMsg('对局已结束,请重新开始！');
+						return;
+					}
+					if(!this.couldPressOrNot())	return;
+					if(this.historySteps.length===0||(this.historySteps.length===1&&!this.lastPlay)){
+						this.toastMsg('现在不允许悔棋');
+						return;
+					}
+					let message = {
+						type:'regret',
+						roomId:this.myRoom.id,
+						from:this.user.id,
+						to:this.oppoId
+					}
+					socket.send(JSON.stringify(message));
+					//构造系统消息
+					message = {
+						type:'system',
+						content:'系统消息:你已发起悔棋请求',
+						time:this.getTimeNow(),
+						position:'middle',
+					}
+					this.messages.push(message);
+					this.scrollToBottom();
+					this.toastMsg('等待对方响应···');
+					this.requestWaiting = true;
+				},
+				//发送消息
+				sendText(){
+					if(this.text===''){
+						//alert('消息不能为空！');
+						this.toastMsg('消息不能为空！')
+						return;
+					}
+					if(this.myRoom.id===undefined||this.myRoom.id===null){
+						return;
+					}
+					//构造消息
+					let message={
+						type:'chat-message',
+						content:this.text,
+						time:this.getTimeNow(),
+						roomId:this.myRoom.id,
+						fromId:this.user.id,
+						fromName:this.user.name
+					}
+					socket.send(JSON.stringify(message));
+					this.text = '';
+				},
+				//滚动到聊天位置末尾
+				scrollToBottom() {
+					this.$nextTick(()=>{
+						let container = this.$el.querySelector('#chat-body');
+						container.scrollTop = container.scrollHeight;
+					})
+				},
+				//加入房间
+				joinRoom(room){
+					if(room.playerId2!=='-1')	return;//房间满了
+					//构造消息
+					let message={
+						type:'join-room',
+						roomId:room.id,
+						user:this.user
+					}
+					socket.send(JSON.stringify(message));
+				},
+				getReady(){
+					this.gameReady = true;
+					let message = {
+						type:'system',
+						content:'系统消息:你已经准备',
+						time:this.getTimeNow(),
+						position:'middle',
+					}
+					this.messages.push(message);
+					this.scrollToBottom();
+					if(this.myRoom.playerId1==this.user.id){
+						if(this.myRoom.playerId2!='-1'){
+							message = {
+								type:'info-ready',
+								content: this.gameReady,
+								to:this.myRoom.playerId2,
+								from:this.user.id
+							}
+							socket.send(JSON.stringify(message))
+						}
+					}else {
+						message = {
+							type:'info-ready',
+							content: this.gameReady,
+							to:this.myRoom.playerId1,
+							from:this.user.id
+						}
+						socket.send(JSON.stringify(message))
+					}
+				},
+				showClass(position){
+					if(position==='middle')	return "message-middle";
+					else if(position==='left') return "message-left";
+					else return "message-right"
+				},
+				//创建对战房间
+				createRoom(){
+					//获取在线房间
+					let message={
+						type:'create-room',
+						user:this.user
+					}
+					socket.send(JSON.stringify(message));
+				},
+				//初始化我的房间
+				initMyRoom(room){
+					this.myRoom = room;
+					this.roomReady = true;
+					this.lobbyReady = false;
+					this.messages = [];//清空消息
+					//初始化系统消息
+					let message = {
+						type:'system',
+						content:'系统消息:你已创建房间',
+						time:this.getTimeNow(),
+						position:'middle',
+					}
+					this.messages.push(message);
+					this.scrollToBottom();
+				},
+				getOnlineRoom(){
+					//获取在线房间
+					let message={
+						type:'get-online-room'
+					}
+					socket.send(JSON.stringify(message));
+				},
+				//退出房间
+				quitRoom(){
+					if(this.requestWaiting){
+						this.toastMsg('正在等待对手响应···');
+						return;
+					}
+					if(!this.roomReady){
+						//alert('你还没有房间！');
+						this.toastMsg('你还没有房间！');
+						return;
+					}
+					let r = confirm('未完成的对局不会被保存！');
+					if(r){
+						let message={
+							type:'quit-room',
+							userId:this.user.id
+						}
+						socket.send(JSON.stringify(message));
+						this.roomReady=false;
+						this.lobbyReady=true;
+						this.gameReady=false;
+						this.oppoId = '-1';
+						this.myRoom = {};
+						this.historySteps = [];
+						this.initChessArray();
+						this.clearBoard();
+					}
+				},
+				setOnlineRoom(rooms){
+					this.onlineRooms = rooms;
+				},
+				//收到房间消息
+				receiveChatMessage(data){
+					let position;
+					if(data.fromId===this.user.id)	position = 'right';
+					else		position = 'left';
+					let message = {
+						type:'chat',
+						content:data.fromName+':'+data.content,
+						time:this.getTimeNow(),
+						position:position,
+					}
+					this.messages.push(message);
+					this.scrollToBottom();
+				},
+				//有人加入房间
+				someoneJoinRoom(data){
+					let room = data.content;
+					this.myRoom.playerId2 = room.playerId2;
+					this.oppoId = room.playerId2;
+					this.myRoom.playerName2 = room.playerName2;
+					this.myRoom.state = 'playing';
+					//构造系统消息
+					let message = {
+						type:'system',
+						position:'middle',
+						content:'系统消息: 棋手:\t'+room.playerName2+'\t已加入房间',
+						time:this.getTimeNow()
+					}
+					this.messages.push(message);
+					this.scrollToBottom();
+					//需要告诉对方自己时候已经准备了
+					message = {
+						type:'info-ready',
+						content: this.gameReady,
+						to:this.myRoom.playerId2,
+						from:this.user.id
+					}
+					socket.send(JSON.stringify(message))
+				},
+				//收到对方
+				oppoReadyChange(data){
+					if(this.myRoom.id===undefined||this.myRoom.id===null){
+						return;
+					}
+					if(data.content){
+						//对手已经准备了
+						this.oppoReady = true;
+						let message = {
+							type:'system',
+							position:'middle',
+							content:'系统消息：对手已经准备好了',
+							time:this.getTimeNow()
+						}
+						this.messages.push(message);
+						this.scrollToBottom();
+						//如果自己也准备好了  就可以开始游戏了
+						if(this.gameReady){
+							let message={
+								type:'start-game',
+								roomId:this.myRoom.id
+							}
+							socket.send(JSON.stringify(message));
+						}
+					}
+				},
+				//主动加入别人的房间
+				joinRoomSuccess(data){
+					//清空消息
+					this.messages = [];
+					this.myRoom = data.content;
+					this.lobbyReady = false;
+					this.gameReady = false;
+					this.roomReady = true;
+					this.oppoId = this.myRoom.playerId1;
+					//构造系统消息
+					let message = {
+						type:'system',
+						position:'middle',
+						content:'系统消息:你已经加入房间',
+						time:this.getTimeNow()
+					}
+					this.messages.push(message);
+					this.scrollToBottom();
+				},
+				//开始游戏
+				startGame(data){
+					//重新初始化赢法
+					this.initWins();
+					let color = data.content;
+					this.myChessColor = color; //棋子颜色
+					if(color==='black'){
+						this.isMyTurn = true; //黑棋优先
+						//构造系统消息
+						this.addSystemMessage('游戏开始 你是黑棋 请先手!')
+					}else{
+						this.isMyTurn = false;
+						//构造系统消息
+						this.addSystemMessage('游戏开始 你是白棋 等待对方先手!')
+					}
+					this.isOver = false;
+					this.requestWaiting = false;
+					this.gameReady = true;
+					this.toastMsg('游戏开始');
+				},
+				oppoPlay(data){
+					let i = data.x;
+					let j = data.y;
+					//对手下棋  画棋子
+					this.context.beginPath();
+					this.context.arc(i*30+15, j*30+15, 13, 0, 2*Math.PI);//画圆
+					this.context.closePath();
+					this.context.fillStyle=data.color;
+					this.context.fill();
+
+					this.chess_Board[i][j] = 1;
+					//判断对手是否赢了
+					for(let k = 0; k < this.count; k ++){
+						if(this.wins[i][j][k]){
+							this.OppoWin[k] += 1;
+							if(this.OppoWin[k] === 5){
+								this.toastMsg('败北');
+								this.isOver = true;
+								//将该赢法的5颗棋子标出来
+								this.drawWin(k);
+								let message = {
+									type:'winCheck',
+									roomId:this.myRoom.id,
+									winId:this.oppoId,
+									loseId:this.user.id
+								}
+								socket.send(JSON.stringify(message));
+								this.addSystemMessage('很遗憾 本局 你输了');
+							}
+						}
+					}
+					//记录步骤
+					this.lastPlay = false;  //上一步是我下的
+					//记录步数
+					let step = {
+						player:'oppo',
+						i:i,
+						j:j
+					}
+					this.historySteps.unshift(step);
+					//该我下了
+					this.isMyTurn = true;
+				},
+				//处理认输
+				processSurrender(data){
+					this.isOver = true;
+					this.toastMsg('对手已认输！');
+					//构造系统消息
+					let message = {
+						type:'system',
+						content:'系统消息:对手认输',
+						time:this.getTimeNow(),
+						position:'middle',
+					}
+					this.messages.push(message);
+					this.scrollToBottom();
+				},
+				//处理和棋
+				processPeace(data){
+					let that = this;
+					$.confirm({
+						title: '对方请求和棋!',
+						content: '是否同意？(少于3回合的对局不会被保存)',
+						confirmButton:'同意',
+						cancelButton:'拒绝',
+						confirm: function(){
+							let message = {
+								type:'peace-agree',
+								roomId:that.myRoom.id,
+								from:that.user.id,
+								to:that.oppoId
+							}
+							socket.send(JSON.stringify(message));
+							//构造系统消息
+							message = {
+								type:'system',
+								content:'系统消息:\t本局和棋',
+								time:that.getTimeNow(),
+								position:'middle',
+							}
+							that.messages.push(message);
+							that.scrollToBottom();
+							that.isOver = true;
+						},
+						cancel: function(){
+							let message = {
+								type:'peace-reject',
+								roomId:that.myRoom.id,
+								from:that.user.id,
+								to:that.oppoId
+							}
+							socket.send(JSON.stringify(message));
+							//构造系统消息
+							message = {
+								type:'system',
+								content:'系统消息:\t你拒绝了对方的和棋请求',
+								time:that.getTimeNow(),
+								position:'middle',
+							}
+							that.messages.push(message);
+							that.scrollToBottom();
+						}
+					});
+				},
+				processPeaceAgree(data){
+					this.toastMsg('对方同意和棋');
+					let message = {
+						type:'system',
+						content:'系统消息:\t本局和棋',
+						time:this.getTimeNow(),
+						position:'middle',
+					}
+					this.messages.push(message);
+					this.scrollToBottom();
+					this.isOver = true;
+					this.requestWaiting = false;
+				},
+				processRestart(data){
+					let that = this;
+					$.confirm({
+						title: '对方请求重新开局!',
+						content: '为完成的对局不会被保存!',
+						confirmButton:'同意',
+						cancelButton:'拒绝',
+						confirm: function(){
+							let message = {
+								type:'restart-agree',
+								roomId:that.myRoom.id,
+								from:that.user.id,
+								to:that.oppoId
+							}
+							socket.send(JSON.stringify(message));
+
+							//清空历史
+							that.historySteps = [];
+							//清空棋盘
+							that.initChessArray();
+							//重新绘制棋盘
+							that.clearBoard();
+							that.addSystemMessage('重新开局');
+						},
+						cancel: function(){
+							let message = {
+								type:'restart-reject',
+								roomId:that.myRoom.id,
+								from:that.user.id,
+								to:that.oppoId
+							}
+							socket.send(JSON.stringify(message));
+							that.addSystemMessage('你已拒绝重新开局！');
+						}
+					});
+				},
+				processRestartAgree(data){
+					this.toastMsg('对方同意重新开局！');
+					this.addSystemMessage('重新开局');
+					//清空历史
+					this.historySteps = [];
+					//清空棋盘
+					this.initChessArray();
+					//重新绘制棋盘
+					this.clearBoard();
+					this.startGame(data);
+					this.requestWaiting = false;
+				},
+				//自己变成了房主
+				becomeOwner(data){
+					this.requestWaiting = false;
+					this.oppoReady = false;
+					this.myRoom = data.content;
+					this.gameReady = false;
+					this.isMyTurn = false;
+					this.isOver = true;
+					this.oppoId = '-1';
+					//重新绘制棋盘
+					this.historySteps = [];
+					this.initChessArray();
+					this.clearBoard();
+					this.toastMsg('房主已经离开，你成为房间房主');
+					this.addSystemMessage('对手已离开');
+					this.addSystemMessage('你成为房主');
+				},
+				//房客退了
+				clientLeave(data){
+					this.requestWaiting = false;
+					this.myRoom = data.content;
+					this.toastMsg('对手离开了房间');
+					this.oppoReady = false;
+					this.gameReady = false;
+					this.isMyTurn = false;
+					this.isOver = true;
+					this.oppoId = '-1';
+					//重新绘制棋盘
+					this.historySteps = [];
+					this.initChessArray();
+					this.clearBoard();
+					this.addSystemMessage('对手离开了房间');
+				},
+				initSocket(){
+					let that = this;
+					if(typeof (WebSocket) == "undefined"){
+						console.log("您的浏览器不支持websocket");
+					}else{
+						let socketUrl = "ws://"+that.url+"/socket/"+this.user.id;
+						if(socket!=null){
+							socket.close();
+							socket = null;
+						}
+						socket = new WebSocket(socketUrl);
+						//打开事件
+						socket.onopen = function () {
+							console.log("websocket已经连接");
+						}
+						socket.onerror = function (){
+							alert('服务器连接失败！');
+						}
+						socket.onclose = function (){
+							alert('服务器已断开!确认以重新刷新');
+							window.location.reload();
+						}
+						//获取消息事件.
+						socket.onmessage = function (msg) {
+							let data = JSON.parse(msg.data);
+							switch (data.type) {
+								case 'kicked'://账号在别处登录
+									that.user = {};
+									window.localStorage.removeItem('user');
+									socket.close();
+									alert('你的账号已在别处登录！');
+									window.location.href='./login.html';
+									break;
+								case 'online-rooms':
+									that.setOnlineRoom(data.content);
+									break;
+								case 'create-room-success':
+									that.initMyRoom(data.content);
+									break;
+								case 'join-room-success':  //加入房间成功
+									that.joinRoomSuccess(data);
+									break;
+								case 'chat-message':
+									that.receiveChatMessage(data); //处理收到消息
+									break;
+								case "someone-join-room":  //处理有人加入房间
+									that.someoneJoinRoom(data);
+									break;
+								case "info-ready":
+									that.oppoReadyChange(data);
+									break;
+								case 'start-game'://开始游戏
+									that.startGame(data);
+									break;
+								case 'play':   //下棋
+									that.oppoPlay(data);
+									break;
+								case 'regret':  //收到对方的悔棋申请
+									that.processRegret(data);
+									break;
+								case 'regret-reject':
+									that.toastMsg('对方拒绝了你悔棋请求');
+									that.addSystemMessage('对方拒绝了你悔棋请求');
+									that.requestWaiting = false;
+									break;
+								case 'regret-agree':
+									that.processRegretAgree();
+									break;
+								case 'surrender':
+									that.processSurrender(data);
+									break;
+								case 'peace':
+									that.processPeace(data); //处理和棋请求
+									break;
+								case 'peace-reject':
+									that.toastMsg('对方拒绝和棋！');
+									that.requestWaiting = false;
+									break;
+								case 'peace-agree':
+									that.processPeaceAgree(data);
+									break;
+								case 'restart':
+									that.processRestart(data);
+									break;
+								case 'restart-reject':
+									that.toastMsg('对方拒绝重新开局！');
+									that.addSystemMessage('对方拒绝重新开局!');
+									that.requestWaiting = false;
+									break;
+								case 'restart-agree':
+									that.processRestartAgree(data)
+									break;
+								case 'become-owner':
+									that.becomeOwner(data);
+									break;
+								case 'client-leave':
+									that.clientLeave(data);
+									break;
+								default:
+									console.log(data)
+
+							}
+						}
+					}
+				},
+				//等不能点 悔棋  认输  求和 重开等按钮
+				couldPressOrNot(){
+					if(this.oppoId==="-1"){
+						this.toastMsg('等待对手加入房间');
+						return false;
+					}
+					if(!this.oppoReady){
+						this.toastMsg('等待对手准备···');
+						return false;
+					}
+					if(this.requestWaiting){
+						this.toastMsg('正在等待对手响应···');
+						return false;
+					}
+					return true;
+				},
+				//构造系统消息
+				addSystemMessage(content){
+					let message = {
+						type:'system',
+						content:'系统消息:'+content,
+						time:this.getTimeNow(),
+						position:'middle',
+					}
+					this.messages.push(message);
+					this.scrollToBottom();
+				},
+				//回到上一步
+				GoBackOneStep(){
+					if(this.historySteps.length===0){
+						this.toastMsg('现在不允许悔棋');
+						return;
+					}
+					let step = this.historySteps.shift();
+					this.context.stroke();
+					//清除掉棋子痕迹
+					this.context.clearRect(step.i*30,step.j*30,30,30);
+					//画出线
+					this.context.strokeStyle = "black";
+					//设置起始点的坐标
+
+					let x1,y1,x2,y2;
+					///画出被擦去的x轴  需要考虑边界问题
+					if(step.i===0){
+						x1=15;
+						x2=30;
+					}else if(step.i===17){
+						x1=17*30;
+						x2=17*30+15;
+					}else{
+						x1 = step.i * 30;
+						x2 = step.i * 30+30;
+					}
+					this.context.beginPath();
+					this.context.moveTo(x1,step.j*30+15);
+					this.context.lineTo(x2,step.j*30+15);
+					this.context.closePath();
+					this.context.stroke();
+
+					///画出被擦去的y轴  需要考虑边界问题
+					if(step.j===0){
+						y1=15;
+						y2=30;
+					}else if(step.j===17){
+						y1=17*30;
+						y2=17*30+15;
+					}else{
+						y1 = step.j * 30;
+						y2 = step.j * 30+30;
+					}
+					//设置起始点的坐标
+					this.context.beginPath();
+					this.context.moveTo(step.i * 30+15,y1);
+					//设置结束点的坐标
+					this.context.lineTo(step.i * 30+15,y2);
+					this.context.closePath();
+					//连接两个点
+					this.context.stroke();
+					//棋盘置零
+					this.chess_Board[step.i][step.j] = 0;
+					//赢法回到上一步
+					for(let k=0; k<this.count; k ++){
+						if(this.wins[step.i][step.j][k]){
+							if(step.player==='me')
+								this.myWin[k] --;
+							else this.OppoWin[k] --;
+						}
+					}
+				},
+
+				//画赢法
+				drawWin(k){
+					for(let x=0;x<18;x++){
+						for(let y=0;y<18;y++){
+							if(this.wins[x][y][k])
+							{
+								this.context.beginPath();
+								this.context.arc(x*30+15, y*30+15, 5, 0, 2*Math.PI);//画圆
+								this.context.closePath();
+								this.context.fillStyle="red";
+								this.context.fill();
+							}
+						}
+					}
+				},
+				//清空棋盘
+				clearBoard(){
+					this.context.clearRect(0,0,540,540);
+					this.context.strokeStyle = "black";
+					for(let i = 0; i < 18; i ++){
+						//x轴
+						this.context.beginPath();
+						//设置起始点的坐标
+						this.context.moveTo(15, 15+i*30)
+						//设置结束点的坐标
+						this.context.lineTo(525,15+i*30);
+						//连接两个点
+						this.context.stroke();
+						//y轴
+						//设置起始点的坐标
+						this.context.moveTo(15+i*30, 15)
+						//设置结束点的坐标
+						this.context.lineTo(15+i*30, 525);
+						//连接两个点
+						this.context.stroke();
+						this.context.closePath();
+					}
+				},
+				//画棋盘
+				drawChessBoard:function (){
+					let that = this;
+					window.onload=function (){
+						that.chessBoard=document.getElementById('chessBoard');// getElementsByClassName('chessBoard')[0];
+						that.context = that.chessBoard.getContext("2d");
+						that.context.strokeStyle = "black";
+						for(let i = 0; i < 18; i ++){
+							//x轴
+							//设置起始点的坐标
+							that.context.moveTo(15, 15+i*30)
+							//设置结束点的坐标
+							that.context.lineTo(525,15+i*30);
+							//连接两个点
+							that.context.stroke();
+							//y轴
+							//设置起始点的坐标
+							that.context.moveTo(15+i*30, 15)
+							//设置结束点的坐标
+							that.context.lineTo(15+i*30, 525);
+							//连接两个点
+							that.context.stroke();
+						}
+
+						that.chessBoard.onclick=function (e){
+							//如果游戏结束，则不可以再下棋
+							if(!that.roomReady)	return;
+							if(that.requestWaiting){
+								that.toastMsg('正在等待对方相应···');
+								return;
+							}
+							if(!that.gameReady){
+								//alert('请准备！');
+								that.toastMsg('请先准备！');
+								return;
+							}
+							if(that.myRoom.playerId2==="-1"){
+								//alert('等待对手加入房间');
+								that.toastMsg('等待对手加入房间···');
+								return;
+							}
+							if(!that.oppoReady){
+								//alert('等待对手准备···');
+								that.toastMsg('等待对手准备···');
+								return;
+							}
+							if(that.isOver){
+								that.toastMsg('对局已结束,请重新开始！');
+								return;
+							}
+							//该不该我下棋
+							if(!that.isMyTurn){
+								return;
+							}
+							//获取x,y轴的坐标
+							let x = e.offsetX;
+							let y = e.offsetY;
+
+							let i = Math.floor(x/30);
+							let j = Math.floor(y/30);
+							if(that.chess_Board[i][j]===0){
+								//可以下一个子
+								that.oneStep(i, j);
+								that.chess_Board[i][j] = 1;
+								that.isMyTurn = false;
+								that.lastPlay = true;  //上一步是我下的
+								//记录步数
+								let step = {
+									player:'me',
+									i:i,
+									j:j
+								}
+								that.historySteps.unshift(step);
+								//构造消息
+								let message = {
+									type:'play',
+									x:i,
+									y:j,
+									color:that.myChessColor,
+									roomId:that.myRoom.id,
+									from:that.user.id,
+									to:that.oppoId
+								}
+								socket.send(JSON.stringify(message));
+								that.isWin(i, j);
+							}
+						}
+					}
+				},
+				initWins:function (){
+					//初始化数组大小
+					for(let i = 0; i < 18; i ++){
+						this.wins[i] = [];
+						for(let j = 0; j < 18; j ++){
+							this.wins[i][j] = [];
+						}
+					}
+					//赢法的编号
+
+					//统计横线赢法
+					for(let i = 0; i  < 18; i ++){
+						for(let j = 0; j < 14; j ++){
+							for(let k = 0; k < 5; k ++){
+								this.wins[j+k][i][this.count] = true;
+							}
+							this.count++;
+						}
+					}
+					//统计竖线赢法
+					for(let i = 0; i  < 18; i ++){
+						for(let j = 0; j < 14; j ++){
+							for(let k = 0; k < 5; k ++){
+								this.wins[i][j+k][this.count] = true;
+							}
+							this.count++;
+						}
+					}
+					//统计正斜线赢法
+					for(let i = 0; i  < 14; i ++){
+						for(let j = 0; j < 14; j ++){
+							for(let k = 0; k < 5; k ++){
+								this.wins[i+k][j+k][this.count] = true;
+							}
+							this.count++;
+						}
+					}
+					//统计反斜线赢法
+					for(let i = 0; i  < 14; i ++){
+						for(let j = 17; j > 3; j --){
+							for(let k = 0; k < 5; k ++){
+								this.wins[i+k][j-k][this.count] = true;
+							}
+							this.count++;
+						}
+					}
+					//初始化赢法编号
+					for(let i = 0; i < this.count; i++){
+						this.myWin[i] = 0;   //我的赢法
+						this.OppoWin[i] = 0;  //对手的赢法
+					}
+				},
+				//初始化下棋数组
+				initChessArray:function (){
+					for(let i = 0; i < 18; i ++){
+						this.chess_Board[i] = [];
+						for(let j = 0; j < 18; j++){
+							this.chess_Board[i][j] = 0;//初始设置为0，表示没有棋子
+						}
+					}
+				},
+				//计算机下子
+				oneStep:function (i, j){
+					this.context.beginPath();
+					this.context.arc(i*30+15, j*30+15, 13, 0, 2*Math.PI);//画圆
+					this.context.closePath();
+					this.context.fillStyle=this.myChessColor;
+					this.context.fill();
+				},
+				isWin:function (i, j){
+					for(let k=0; k<this.count; k ++){
+						if(this.wins[i][j][k]){
+							this.myWin[k] ++;
+						}
+						if(this.myWin[k] === 5)
+						{
+							this.toastMsg('获胜！');
+							this.isOver = true;
+							this.drawWin(k);
+							//winCheck
+							let message = {
+								type:'winCheck',
+								roomId:this.myRoom.id,
+								winId: this.user.id,
+								loseId:this.oppoId
+							}
+							socket.send(JSON.stringify(message));
+							this.addSystemMessage('恭喜你 本局 获胜！');
+						}
+					}
+				},
+				//获取前时间
+				getTimeNow(){
+					let myDate = new Date();
+					let year = myDate.getFullYear();   //获取系统的年；
+					let nowMonth = myDate.getMonth() + 1;
+					let strDate = myDate.getDate(); // 获取系统日，
+					let hour = myDate.getHours(); //获取系统时，
+					let minute = myDate.getMinutes(); //分
+					let second = myDate.getSeconds(); //秒
+					nowMonth = nowMonth<10?'0' + nowMonth:nowMonth;
+					strDate = strDate < 10? '0' +strDate:strDate;
+					hour = hour < 10? '0' +hour:hour;
+					minute = minute < 10? '0' +minute:minute;
+					second = second < 10? '0' +second:second;
+					return year + '-' + nowMonth + '-' + strDate + ' ' + hour + ':' + minute+":"+second;
+				},
+				//弹出框提示
+				toastMsg(msg) {
+					if ($("div").is("#toastMessage")) {  // 判断页面是否存在  存在的话删除
+						$("#toastMessage").remove();
+					}
+					var msgDiv = '<div id="toastMessage" class="toast-message">' +
+							'<span>' + msg + '</span>' +
+							'</div>';
+					$("body").append(msgDiv); //再添加上去替代
+					var screenHeight = window.innerHeight;  //获取窗口的高
+					var toastMessage = $("#toastMessage");
+					var toastHeight = toastMessage.height();
+					var top = "300px";
+					toastMessage.css("top", top);    //垂直居中显示
+					setTimeout(function () {    // 设置消失时间
+						$("#toastMessage").remove();
+					}, 2500);
+				},
+				//延时函数
+				sleep(time){
+					return new Promise((resolve) => setTimeout(resolve,time));
+				}
+
+			}
+		})
+
+
+	
+
+	</script>
+
+</body></html>
