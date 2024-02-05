@@ -1,7 +1,9 @@
 /* 轮播图的样式 */
 .banner {
   background: url(../images/banner_bg_02.jpeg) center center / 6000px;
+  background: url(../images/banner_bg_03.jpeg) center center / 6000px;
 }
+
 
 .banner .area {
   position: relative;
